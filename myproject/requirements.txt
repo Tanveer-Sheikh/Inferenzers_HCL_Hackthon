@@ -1,0 +1,8 @@
+django==5.2.10
+djangorestframework==3.16.1
+pytesseract
+opencv-python
+pillow
+pdf2image
+openai
+numpy

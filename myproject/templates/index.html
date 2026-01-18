@@ -1,0 +1,675 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Form OCR & Chat App</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        
+        .upload-section {
+            text-align: center;
+        }
+        
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 10px;
+            padding: 40px;
+            margin: 20px 0;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .upload-area:hover {
+            background: #f0f4ff;
+            border-color: #764ba2;
+        }
+        
+        .upload-area.dragover {
+            background: #e0e7ff;
+            border-color: #4c51bf;
+        }
+        
+        input[type="file"] {
+            display: none;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .extracted-data {
+            display: none;
+            margin-top: 30px;
+        }
+        
+        .data-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .data-field {
+            background: #f7fafc;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .data-field label {
+            display: block;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+        
+        .data-field .value {
+            color: #2d3748;
+            font-size: 16px;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #667eea;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .success-message {
+            background: #48bb78;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            display: none;
+        }
+        
+        .error-message {
+            background: #f56565;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            display: none;
+        }
+        
+        .icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📄 Form OCR & Chat Application</h1>
+        
+        <!-- Upload Section -->
+        <div class="card upload-section" id="uploadSection">
+            <h2 style="color: #667eea; margin-bottom: 20px;">Upload Your Form</h2>
+            <p style="color: #718096; margin-bottom: 20px;">Upload an image or PDF of a filled form. We'll extract the data using OCR and AI.</p>
+            
+            <div class="upload-area" id="uploadArea">
+                <div class="icon">📁</div>
+                <p style="font-size: 18px; color: #4a5568; margin-bottom: 10px;">
+                    Click to browse or drag and drop
+                </p>
+                <p style="font-size: 14px; color: #a0aec0;">
+                    Supported: PDF, JPG, PNG, BMP, TIFF
+                </p>
+                <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png,.bmp,.tiff">
+            </div>
+            
+            <button class="btn" id="uploadBtn" disabled>Upload & Process</button>
+            
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Processing your document... This may take a moment.</p>
+            </div>
+            
+            <div class="success-message" id="successMessage"></div>
+            <div class="error-message" id="errorMessage"></div>
+        </div>
+        
+        <!-- Extracted Data Section -->
+        <div class="card extracted-data" id="extractedDataSection">
+            <h2 style="color: #667eea; margin-bottom: 20px;">📋 Extracted Information</h2>
+            
+            <!-- Download Buttons -->
+            <div style="margin-bottom: 20px; display: flex; gap: 10px;">
+                <button class="btn" id="downloadJsonBtn" onclick="downloadReport('json')">📥 Download JSON</button>
+                <button class="btn" id="downloadTxtBtn" onclick="downloadReport('txt')">📥 Download TXT</button>
+            </div>
+            
+            <div class="data-grid" id="dataGrid"></div>
+            <div style="margin-top: 20px;">
+                <h3 style="color: #667eea; margin-bottom: 10px;">Enhanced Text:</h3>
+                <div id="enhancedText" style="background: #f7fafc; padding: 15px; border-radius: 8px; white-space: pre-wrap;"></div>
+            </div>
+        </div>
+        
+        <!-- Chat Section -->
+        <div class="card extracted-data" id="chatSection">
+            <h2 style="color: #667eea; margin-bottom: 20px;">💬 Chat with Document</h2>
+            <p style="color: #718096; margin-bottom: 20px;">Ask questions about the extracted data</p>
+            
+            <!-- Chat History -->
+            <div id="chatHistory" style="background: #f7fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px; max-height: 400px; overflow-y: auto; min-height: 200px;">
+                <p style="text-align: center; color: #a0aec0;">No chat history yet. Ask a question below!</p>
+            </div>
+            
+            <!-- Chat Input -->
+            <div style="display: flex; gap: 10px;">
+                <input type="text" id="questionInput" placeholder="Ask a question about this document..." 
+                       style="flex: 1; padding: 12px 20px; border: 2px solid #e2e8f0; border-radius: 25px; font-size: 16px; outline: none;"
+                       onkeypress="if(event.key === 'Enter') sendQuestion()">
+                <button class="btn" onclick="sendQuestion()" id="sendQuestionBtn">📤 Send</button>
+            </div>
+            
+            <div id="chatLoading" style="display: none; text-align: center; padding: 10px; color: #667eea;">
+                <div class="spinner" style="width: 30px; height: 30px; margin: 10px auto;"></div>
+                <p>Getting answer...</p>
+            </div>
+        </div>
+        
+        <!-- Document Browser Section -->
+        <div class="card" id="browserSection">
+            <h2 style="color: #667eea; margin-bottom: 20px;">🔍 Browse All Documents</h2>
+            
+            <!-- Search -->
+            <div style="margin-bottom: 20px;">
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="searchInput" placeholder="Search by name, email, or phone..." 
+                           style="flex: 1; padding: 12px 20px; border: 2px solid #e2e8f0; border-radius: 25px; font-size: 16px; outline: none;"
+                           onkeypress="if(event.key === 'Enter') searchDocuments()">
+                    <button class="btn" onclick="searchDocuments()">🔍 Search</button>
+                    <button class="btn" onclick="resetSearch()" style="background: #718096;">↺ Reset</button>
+                </div>
+            </div>
+            
+            <!-- Documents List -->
+            <div id="documentsList" style="margin-top: 20px;"></div>
+        </div>
+    </div>
+
+    <script>
+        // Get CSRF token from cookie
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        
+        let currentDocumentId = null;
+        let selectedFile = null;
+        
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const loading = document.getElementById('loading');
+        const successMessage = document.getElementById('successMessage');
+        const errorMessage = document.getElementById('errorMessage');
+        const extractedDataSection = document.getElementById('extractedDataSection');
+        const dataGrid = document.getElementById('dataGrid');
+        const enhancedText = document.getElementById('enhancedText');
+        
+        // Load documents on page load
+        window.addEventListener('load', () => {
+            loadDocuments();
+        });
+        
+        // Upload area click
+        uploadArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+        
+        // File selection
+        fileInput.addEventListener('change', (e) => {
+            selectedFile = e.target.files[0];
+            if (selectedFile) {
+                uploadArea.innerHTML = `
+                    <div class="icon">✅</div>
+                    <p style="font-size: 18px; color: #48bb78; margin-bottom: 10px;">
+                        File selected: ${selectedFile.name}
+                    </p>
+                    <p style="font-size: 14px; color: #a0aec0;">
+                        Click "Upload & Process" to continue
+                    </p>
+                `;
+                uploadBtn.disabled = false;
+            }
+        });
+        
+        // Drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            selectedFile = e.dataTransfer.files[0];
+            if (selectedFile) {
+                uploadArea.innerHTML = `
+                    <div class="icon">✅</div>
+                    <p style="font-size: 18px; color: #48bb78; margin-bottom: 10px;">
+                        File selected: ${selectedFile.name}
+                    </p>
+                    <p style="font-size: 14px; color: #a0aec0;">
+                        Click "Upload & Process" to continue
+                    </p>
+                `;
+                uploadBtn.disabled = false;
+            }
+        });
+        
+        // Upload button
+        uploadBtn.addEventListener('click', async () => {
+            if (!selectedFile) return;
+            
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            
+            loading.style.display = 'block';
+            uploadBtn.disabled = true;
+            errorMessage.style.display = 'none';
+            successMessage.style.display = 'none';
+            
+            try {
+                // Get CSRF token
+                const csrftoken = getCookie('csrftoken');
+                
+                const response = await fetch('/api/upload/', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrftoken,
+                    },
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    currentDocumentId = data.document_id;
+                    successMessage.textContent = data.message;
+                    successMessage.style.display = 'block';
+                    
+                    // Display extracted data
+                    displayExtractedData(data.extracted_data, data.enhanced_text);
+                    
+                    // Reload documents list
+                    loadDocuments();
+                } else {
+                    errorMessage.textContent = data.error || 'Upload failed';
+                    errorMessage.style.display = 'block';
+                }
+            } catch (error) {
+                errorMessage.textContent = 'Network error: ' + error.message;
+                errorMessage.style.display = 'block';
+            } finally {
+                loading.style.display = 'none';
+                uploadBtn.disabled = false;
+            }
+        });
+        
+        // Display extracted data
+        function displayExtractedData(data, enhanced) {
+            const fields = [
+                { key: 'name', label: 'Name' },
+                { key: 'dob', label: 'Date of Birth' },
+                { key: 'address', label: 'Address' },
+                { key: 'city', label: 'City' },
+                { key: 'state', label: 'State' },
+                { key: 'phone', label: 'Phone' },
+                { key: 'email', label: 'Email' },
+                { key: 'gender', label: 'Gender' },
+                { key: 'date', label: 'Date' }
+            ];
+            
+            dataGrid.innerHTML = '';
+            fields.forEach(field => {
+                const value = data[field.key] || 'Not found';
+                if (value && value !== 'Not found') {
+                    dataGrid.innerHTML += `
+                        <div class="data-field">
+                            <label>${field.label}</label>
+                            <div class="value">${value}</div>
+                        </div>
+                    `;
+                }
+            });
+            
+            enhancedText.textContent = enhanced || 'No enhanced text available';
+            extractedDataSection.style.display = 'block';
+            
+            // Show chat section and load chat history
+            document.getElementById('chatSection').style.display = 'block';
+            loadChatHistory();
+        }
+        
+        // Download report function
+        function downloadReport(format) {
+            if (!currentDocumentId) {
+                alert('No document available to download');
+                return;
+            }
+            
+            const url = `/api/documents/${currentDocumentId}/download/${format}/`;
+            window.open(url, '_blank');
+        }
+        
+        // Load all documents
+        async function loadDocuments() {
+            try {
+                const search = document.getElementById('searchInput').value;
+                
+                const params = new URLSearchParams();
+                if (search) params.append('search', search);
+                
+                const response = await fetch(`/api/documents/?${params}`);
+                const data = await response.json();
+                
+                displayDocuments(data.documents, data.count);
+            } catch (error) {
+                console.error('Error loading documents:', error);
+            }
+        }
+        
+        // Display documents in a table
+        function displayDocuments(documents, count) {
+            const container = document.getElementById('documentsList');
+            
+            if (documents.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #718096; padding: 20px;">No documents found</p>';
+                return;
+            }
+            
+            container.innerHTML = `
+                <div style="margin-bottom: 15px; color: #667eea; font-weight: bold;">
+                    Found ${count} document(s)
+                </div>
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; background: white;">
+                        <thead>
+                            <tr style="background: #667eea; color: white;">
+                                <th style="padding: 12px; text-align: left;">ID</th>
+                                <th style="padding: 12px; text-align: left;">Name</th>
+                                <th style="padding: 12px; text-align: left;">DOB</th>
+                                <th style="padding: 12px; text-align: left;">Email</th>
+                                <th style="padding: 12px; text-align: left;">Phone</th>
+                                <th style="padding: 12px; text-align: left;">City</th>
+                                <th style="padding: 12px; text-align: left;">State</th>
+                                <th style="padding: 12px; text-align: left;">Gender</th>
+                                <th style="padding: 12px; text-align: center;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${documents.map(doc => `
+                                <tr style="border-bottom: 1px solid #e2e8f0;">
+                                    <td style="padding: 12px;">${doc.id}</td>
+                                    <td style="padding: 12px; font-weight: bold;">${doc.name || 'N/A'}</td>
+                                    <td style="padding: 12px;">${doc.dob || 'N/A'}</td>
+                                    <td style="padding: 12px;">${doc.email || 'N/A'}</td>
+                                    <td style="padding: 12px;">${doc.phone || 'N/A'}</td>
+                                    <td style="padding: 12px;">${doc.city || 'N/A'}</td>
+                                    <td style="padding: 12px;">${doc.state || 'N/A'}</td>
+                                    <td style="padding: 12px;">${doc.gender || 'N/A'}</td>
+                                    <td style="padding: 12px; text-align: center;">
+                                        <button onclick="viewDocument(${doc.id})" 
+                                                style="padding: 6px 12px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer; margin-right: 5px;">
+                                            View
+                                        </button>
+                                        <button onclick="downloadReport('json', ${doc.id})" 
+                                                style="padding: 6px 12px; background: #48bb78; color: white; border: none; border-radius: 5px; cursor: pointer; margin-right: 5px;">
+                                            JSON
+                                        </button>
+                                        <button onclick="downloadReport('txt', ${doc.id})" 
+                                                style="padding: 6px 12px; background: #4299e1; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                                            TXT
+                                        </button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+        
+        // View specific document
+        async function viewDocument(docId) {
+            try {
+                const response = await fetch(`/api/documents/${docId}/`);
+                const data = await response.json();
+                
+                currentDocumentId = docId;
+                displayExtractedData(data.extracted_data, data.enhanced_text);
+                
+                // Scroll to extracted data section
+                extractedDataSection.scrollIntoView({ behavior: 'smooth' });
+            } catch (error) {
+                alert('Error loading document: ' + error.message);
+            }
+        }
+        
+        // Search documents
+        function searchDocuments() {
+            loadDocuments();
+        }
+        
+        // Reset search
+        function resetSearch() {
+            document.getElementById('searchInput').value = '';
+            loadDocuments();
+        }
+        
+        // Download report with doc ID
+        function downloadReport(format, docId = null) {
+            const id = docId || currentDocumentId;
+            if (!id) {
+                alert('No document selected');
+                return;
+            }
+            
+            const url = `/api/documents/${id}/download/${format}/`;
+            window.open(url, '_blank');
+        }
+        
+        // Load chat history
+        async function loadChatHistory() {
+            if (!currentDocumentId) return;
+            
+            try {
+                const response = await fetch(`/api/documents/${currentDocumentId}/chat/history/`);
+                const data = await response.json();
+                
+                const chatHistory = document.getElementById('chatHistory');
+                
+                if (data.messages && data.messages.length > 0) {
+                    chatHistory.innerHTML = data.messages.map(msg => `
+                        <div style="margin-bottom: 20px;">
+                            <div style="background: white; padding: 12px; border-radius: 8px; margin-bottom: 8px; border-left: 4px solid #667eea;">
+                                <strong style="color: #667eea;">Q:</strong> ${escapeHtml(msg.question)}
+                            </div>
+                            <div style="background: white; padding: 12px; border-radius: 8px; border-left: 4px solid #48bb78;">
+                                <strong style="color: #48bb78;">A:</strong> ${escapeHtml(msg.answer)}
+                            </div>
+                            <div style="font-size: 12px; color: #a0aec0; text-align: right; margin-top: 4px;">
+                                ${new Date(msg.created_at).toLocaleString()}
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    chatHistory.innerHTML = '<p style="text-align: center; color: #a0aec0;">No chat history yet. Ask a question below!</p>';
+                }
+                
+                // Scroll to bottom
+                chatHistory.scrollTop = chatHistory.scrollHeight;
+            } catch (error) {
+                console.error('Error loading chat history:', error);
+            }
+        }
+        
+        // Send question
+        async function sendQuestion() {
+            if (!currentDocumentId) {
+                alert('Please select a document first');
+                return;
+            }
+            
+            const questionInput = document.getElementById('questionInput');
+            const question = questionInput.value.trim();
+            
+            if (!question) {
+                alert('Please enter a question');
+                return;
+            }
+            
+            const chatLoading = document.getElementById('chatLoading');
+            const sendBtn = document.getElementById('sendQuestionBtn');
+            
+            chatLoading.style.display = 'block';
+            sendBtn.disabled = true;
+            
+            try {
+                const csrftoken = getCookie('csrftoken');
+                
+                const response = await fetch(`/api/documents/${currentDocumentId}/chat/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrftoken,
+                    },
+                    body: JSON.stringify({ question: question })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    // Add message to chat history
+                    const chatHistory = document.getElementById('chatHistory');
+                    const messageHtml = `
+                        <div style="margin-bottom: 20px;">
+                            <div style="background: white; padding: 12px; border-radius: 8px; margin-bottom: 8px; border-left: 4px solid #667eea;">
+                                <strong style="color: #667eea;">Q:</strong> ${escapeHtml(data.question)}
+                            </div>
+                            <div style="background: white; padding: 12px; border-radius: 8px; border-left: 4px solid #48bb78;">
+                                <strong style="color: #48bb78;">A:</strong> ${escapeHtml(data.answer)}
+                            </div>
+                            <div style="font-size: 12px; color: #a0aec0; text-align: right; margin-top: 4px;">
+                                ${new Date(data.created_at).toLocaleString()}
+                            </div>
+                        </div>
+                    `;
+                    
+                    if (chatHistory.querySelector('p')) {
+                        chatHistory.innerHTML = messageHtml;
+                    } else {
+                        chatHistory.innerHTML += messageHtml;
+                    }
+                    
+                    // Clear input and scroll to bottom
+                    questionInput.value = '';
+                    chatHistory.scrollTop = chatHistory.scrollHeight;
+                } else {
+                    alert('Error: ' + (data.error || 'Failed to send question'));
+                }
+            } catch (error) {
+                alert('Network error: ' + error.message);
+            } finally {
+                chatLoading.style.display = 'none';
+                sendBtn.disabled = false;
+            }
+        }
+        
+        // Escape HTML to prevent XSS
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
