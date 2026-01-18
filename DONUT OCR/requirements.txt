@@ -1,0 +1,19 @@
+# Core ML Libraries
+torch>=2.0.0
+torchvision>=0.15.0
+transformers>=4.37.0
+accelerate>=0.26.0
+pillow>=10.0.0
+
+# OCR Specifics
+sentencepiece>=0.1.99
+protobuf>=4.25.0
+tiktoken>=0.5.0
+verovio  # Often required for Sheet Music/specific GOT features, good to have
+
+# Web UI
+gradio>=4.0.0
+
+# Utilities
+numpy>=1.24.0
+python-dotenv>=1.0.0
