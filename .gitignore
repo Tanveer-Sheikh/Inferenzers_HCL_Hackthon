@@ -1,0 +1,5 @@
+/myproject/media
+*.pyc
+myproject/myapp/__init__.py
+/venv
+
